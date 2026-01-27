@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Web Call, Chat & Stream</title>
+<title>VEXO - Texting and Streaming Srvice</title>
 <link rel="icon" type="image/png" href="icon.png" sizes="32x32">
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
@@ -142,7 +142,6 @@ let peer, conn, myName, friendName = "Friend";
 let currentCall = null;
 let localStream = null;
 
-// 🌟 LOGIN / REGISTER TABS
 function showTab(tab) {
   document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
   document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
@@ -150,7 +149,6 @@ function showTab(tab) {
   document.getElementById('registerTab').classList.toggle('active', tab === 'register');
 }
 
-// ✅ REGISTER
 function register() {
   const u = regUsername.value.trim();
   const p = regPassword.value;
@@ -166,7 +164,6 @@ function register() {
   showTab('login');
 }
 
-// ✅ LOGIN
 function login() {
   const u = loginUsername.value.trim();
   const p = loginPassword.value;
@@ -184,7 +181,6 @@ function login() {
   startPeer();
 }
 
-// 🌐 PEERJS SETUP
 function startPeer() {
   peer = new Peer();
   peer.on("open", id => myId.innerText = id);
@@ -213,7 +209,6 @@ function startPeer() {
   });
 }
 
-// 📇 FRIENDS LIST
 function loadFriends() {
   const friends = JSON.parse(localStorage.getItem("friends_" + myName)) || [];
   const container = document.getElementById("friendList");
@@ -237,7 +232,6 @@ function addFriend() {
   loadFriends();
 }
 
-// 📞 CONNECT & CHAT
 function connect() {
   conn = peer.connect(peerId.value);
   conn.on("open", () => conn.send({ type: "intro", name: myName }));
@@ -268,7 +262,6 @@ function addChatLine(line) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-// 📞 CALL
 function callFriend() {
   navigator.mediaDevices.getUserMedia({ video: true, audio: true })
     .then(stream => {
@@ -287,7 +280,6 @@ function callFriend() {
     });
 }
 
-// 🖥️ SCREEN SHARE
 function shareScreen() {
   if (!currentCall) return alert("Click Call first");
 
@@ -312,7 +304,6 @@ function shareScreen() {
     });
 }
 
-// 🚪 LEAVE CALL
 function leaveCall() {
   if (currentCall) {
     currentCall.close();
@@ -323,7 +314,6 @@ function leaveCall() {
   }
 }
 
-// 🔊 TALKING INDICATOR
 function detectTalking(stream, indicator) {
   const ctx = new AudioContext();
   const analyser = ctx.createAnalyser();
