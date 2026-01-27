@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vexo</title>
+
+  <link rel="icon" type="image/png" href="icon.png" sizes="32x32">
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+    }
+    input, button {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 5px;
+      border: none;
+    }
+    textarea {
+      width: 90%;
+      height: 140px;
+      background: #000;
+      color: #0f0;
+      resize: none;
+      overflow-y: auto;
+    }
+    .indicator {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: gray;
+      display: inline-block;
+      margin: 0 5px;
+    }
+    .active { background: lime; }
+    video {
+      width: 45%;
+      margin-top: 10px;
+      display: none;
+      border: 2px solid #0f0;
+      border-radius: 5px;
+    }
+    #videos { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+    .tab { cursor: pointer; padding: 5px 10px; background: #222; display: inline-block; margin: 0 5px; border-radius: 5px; }
+    .tab.active { background: #0f0; color: #000; }
+  </style>
+</head>
+<body>
+
+<h2>Vexo</h2>
+
+<div id="loginScreen">
+  <div>
+    <span class="tab active" id="loginTab" onclick="showTab('login')">Login</span>
+    <span class="tab" id="registerTab" onclick="showTab('register')">Register</span>
+  </div>
+
+  <!-- LOGIN FORM -->
+  <div id="loginForm">
+    <input id="loginUsername" placeholder="Username">
+    <input id="loginPassword" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+
+  <!-- REGISTER FORM -->
+  <div id="registerForm" style="display:none;">
+    <input id="regUsername" placeholder="Username">
+    <input id="regPassword" type="password" placeholder="Password">
+    <button onclick="register()">Create Account</button>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+  <p>Welcome, <b id="myNameDisplay"></b>!</p>
+  <p>Your Invite ID:</p>
+  <b id="myId"></b><br><br>
+
+  <input id="peerId" placeholder="Friend's Invite ID">
+  <button onclick="connect()">Connect</button>
+  <button onclick="callFriend()">Call</button>
+  <button onclick="shareScreen()">Share Screen</button>
+  <button onclick="leaveCall()">Leave Call</button>
+
+  <br><br>
+  You <span id="meTalk" class="indicator"></span>
+  Friend <span id="friendTalk" class="indicator"></span>
+
+  <br><br>
+
+  <textarea id="chat" readonly></textarea><br>
+  <input id="msg" placeholder="Message">
+  <button onclick="send()">Send</button>
+
+  <br><br>
+  <div id="videos">
+    <video id="myVideo" autoplay playsinline muted></video>
+    <video id="friendVideo" autoplay playsinline></video>
+  </div>
+  <audio id="audio" autoplay></audio>
+</div>
+
+<script>
+let peer, conn, myName, friendName = "Friend";
+let currentCall = null;
+let localStream = null;
+
+// 🌟 LOGIN / REGISTER TABS
+function showTab(tab) {
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('loginTab').classList.toggle('active', tab === 'login');
+  document.getElementById('registerTab').classList.toggle('active', tab === 'register');
+}
+
+// ✅ REGISTER
+function register() {
+  const u = regUsername.value.trim();
+  const p = regPassword.value;
+  if (!u || !p) return alert("Enter username & password");
+
+  if (localStorage.getItem("user_" + u)) {
+    return alert("Username already exists!");
+  }
+
+  localStorage.setItem("user_" + u, p);
+  alert("Account created! You can now login.");
+  showTab('login');
+}
+
+// ✅ LOGIN
+function login() {
+  const u = loginUsername.value.trim();
+  const p = loginPassword.value;
+  const stored = localStorage.getItem("user_" + u);
+  if (!stored) return alert("Username does not exist!");
+  if (stored !== p) return alert("Wrong password!");
+  myName = u;
+
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("myNameDisplay").innerText = myName;
+
+  startPeer();
+}
+
+// 🌐 PEERJS SETUP
+function startPeer() {
+  peer = new Peer();
+  peer.on("open", id => myId.innerText = id);
+
+  peer.on("connection", c => {
+    conn = c;
+    setupChat();
+    conn.on("open", () => conn.send({ type: "intro", name: myName }));
+  });
+
+  peer.on("call", call => {
+    currentCall = call;
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(stream => {
+        localStream = stream;
+        myVideo.srcObject = stream;
+        myVideo.style.display = "block";
+        detectTalking(stream, meTalk);
+        call.answer(stream);
+        call.on("stream", s => {
+          friendVideo.srcObject = s;
+          friendVideo.style.display = "block";
+          detectTalking(s, friendTalk);
+        });
+      });
+  });
+}
+
+// 📞 CONNECT & CALL
+function connect() {
+  conn = peer.connect(peerId.value);
+  conn.on("open", () => conn.send({ type: "intro", name: myName }));
+  setupChat();
+}
+
+function setupChat() {
+  conn.on("data", d => {
+    if (d.type === "intro") {
+      friendName = d.name;
+      addChatLine(`* ${friendName} connected *`);
+    }
+    if (d.type === "msg") {
+      addChatLine(`${friendName}: ${d.text}`);
+    }
+  });
+}
+
+function send() {
+  if (!msg.value) return;
+  addChatLine(`${myName}: ${msg.value}`);
+  conn.send({ type: "msg", text: msg.value });
+  msg.value = "";
+}
+
+function addChatLine(line) {
+  chat.value += line + "\n";
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// 📞 CALL
+function callFriend() {
+  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    .then(stream => {
+      localStream = stream;
+      myVideo.srcObject = stream;
+      myVideo.style.display = "block";
+      detectTalking(stream, meTalk);
+
+      currentCall = peer.call(peerId.value, stream);
+
+      currentCall.on("stream", s => {
+        friendVideo.srcObject = s;
+        friendVideo.style.display = "block";
+        detectTalking(s, friendTalk);
+      });
+    });
+}
+
+// 🖥️ SCREEN SHARE
+function shareScreen() {
+  if (!currentCall) return alert("Click Call first");
+
+  navigator.mediaDevices.getDisplayMedia({ video: true })
+    .then(screenStream => {
+      const screenTrack = screenStream.getVideoTracks()[0];
+      const sender = currentCall.peerConnection
+        .getSenders()
+        .find(s => s.track && s.track.kind === "video");
+
+      if (sender) sender.replaceTrack(screenTrack);
+
+      myVideo.srcObject = screenStream;
+      myVideo.style.display = "block";
+
+      screenTrack.onended = () => {
+        if (localStream && localStream.getVideoTracks().length) {
+          sender.replaceTrack(localStream.getVideoTracks()[0]);
+          myVideo.srcObject = localStream;
+        }
+      };
+    });
+}
+
+// 🚪 LEAVE CALL
+function leaveCall() {
+  if (currentCall) {
+    currentCall.close();
+    currentCall = null;
+    friendVideo.srcObject = null;
+    friendVideo.style.display = "none";
+    myVideo.srcObject = localStream;
+  }
+}
+
+// 🔊 TALKING INDICATOR
+function detectTalking(stream, indicator) {
+  const ctx = new AudioContext();
+  const analyser = ctx.createAnalyser();
+  const src = ctx.createMediaStreamSource(stream);
+  src.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  function loop() {
+    analyser.getByteFrequencyData(data);
+    const volume = data.reduce((a,b)=>a+b)/data.length;
+    indicator.classList.toggle("active", volume > 20);
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+</script>
+
+</body>
+</html>
