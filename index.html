@@ -1,160 +1,286 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>VEXO</title>
+<meta charset="UTF-8">
+<title>VEXO</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body {
+    margin:0;
+    font-family: Arial, sans-serif;
+    background:#1e1f22;
+    color:white;
+  }
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  /* LOGIN / SIGNUP */
+  #authScreen {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
+  }
+  #authScreen input {
+    padding:10px;
+    margin:5px;
+    border-radius:6px;
+    border:none;
+    width:250px;
+  }
+  #authScreen button {
+    padding:10px;
+    margin:5px;
+    border-radius:6px;
+    border:none;
+    background:#5865f2;
+    color:white;
+    cursor:pointer;
+    width:270px;
+  }
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #1e1f22;
-      color: white;
-    }
+  /* MAIN APP */
+  #appScreen {
+    display:none;
+    height:100vh;
+    display:flex;
+  }
 
-    #loginScreen, #chatScreen {
-      padding: 20px;
-    }
+  /* SIDEBAR */
+  #sidebar {
+    width:220px;
+    background:#2f3136;
+    padding:15px;
+    box-sizing:border-box;
+    display:flex;
+    flex-direction:column;
+  }
+  #sidebar h2 {
+    margin:0 0 15px 0;
+    font-size:22px;
+    text-align:center;
+  }
+  #friendsList {
+    flex:1;
+    overflow-y:auto;
+    margin-bottom:10px;
+  }
+  .friendItem {
+    padding:8px;
+    margin:4px 0;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .friendItem:hover {
+    background:#40444b;
+  }
 
-    #chatScreen {
-      display: none;
-    }
+  #addFriendDiv {
+    display:flex;
+    margin-top:5px;
+  }
+  #addFriendDiv input {
+    flex:1;
+  }
+  #addFriendDiv button {
+    margin-left:5px;
+  }
 
-    #messages {
-      height: 70vh;
-      background: #111;
-      padding: 10px;
-      overflow-y: auto;
-      border-radius: 6px;
-      margin-bottom: 10px;
-    }
+  /* CHAT AREA */
+  #chatArea {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+  }
+  #chatHeader {
+    padding:10px;
+    background:#2f3136;
+    font-weight:bold;
+  }
+  #messages {
+    flex:1;
+    padding:10px;
+    overflow-y:auto;
+  }
+  .message {
+    max-width:60%;
+    padding:8px;
+    border-radius:12px;
+    margin:5px 0;
+    word-wrap:break-word;
+  }
+  .fromMe {
+    background:#5865f2;
+    align-self:flex-end;
+  }
+  .fromFriend {
+    background:#36393f;
+    align-self:flex-start;
+  }
 
-    input {
-      padding: 10px;
-      border-radius: 6px;
-      border: none;
-      width: 70%;
-    }
-
-    button {
-      padding: 10px;
-      border-radius: 6px;
-      border: none;
-      background: #5865f2;
-      color: white;
-      cursor: pointer;
-    }
-  </style>
+  #inputArea {
+    display:flex;
+    padding:10px;
+    background:#2f3136;
+  }
+  #inputArea input {
+    flex:1;
+    padding:10px;
+    border-radius:6px;
+    border:none;
+  }
+  #inputArea button {
+    margin-left:5px;
+    padding:10px;
+    border-radius:6px;
+    border:none;
+    background:#5865f2;
+    color:white;
+    cursor:pointer;
+  }
+</style>
 </head>
-
 <body>
 
-<!-- LOGIN -->
-<div id="loginScreen">
-  <h2>Login</h2>
-  <input id="usernameInput" placeholder="Username">
-  <button onclick="doLogin()">Enter</button>
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <h2>VEXO Login / Signup</h2>
+  <input id="emailInput" placeholder="Email">
+  <input id="passwordInput" placeholder="Password" type="password">
+  <button onclick="signup()">Sign Up</button>
+  <button onclick="login()">Login</button>
 </div>
 
-<!-- CHAT -->
-<div id="chatScreen">
-  <h3 id="welcome"></h3>
-
-  <div id="messages"></div>
-
-  <input id="msgInput" placeholder="Message">
-  <button onclick="sendMessage()">Send</button>
+<!-- MAIN APP -->
+<div id="appScreen">
+  <div id="sidebar">
+    <h2>VEXO</h2>
+    <div id="friendsList"></div>
+    <div id="addFriendDiv">
+      <input id="newFriendInput" placeholder="Friend username/email">
+      <button onclick="addFriend()">Add</button>
+    </div>
+    <button onclick="logout()" style="margin-top:10px;background:#f04747;">Logout</button>
+  </div>
+  <div id="chatArea">
+    <div id="chatHeader">Select a friend</div>
+    <div id="messages"></div>
+    <div id="inputArea">
+      <input id="msgInput" placeholder="Message">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
 </div>
 
 <script>
-/* 🔑 SUPABASE CONFIG */
+/* ===== SUPABASE SETUP ===== */
 const SUPABASE_URL = "https://yytycjrwppbklxghvrov.supabase.co";
-const SUPABASE_KEY =
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5dHljanJ3cHBia2x4Z2h2cm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2OTkyMjYsImV4cCI6MjA4NTI3NTIyNn0.QqmTWXwUEwR2osPncSUbck7h-VsV5poLE4dtLjbiikw";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5dHljanJ3cHBia2x4Z2h2cm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2OTkyMjYsImV4cCI6MjA4NTI3NTIyNn0.QqmTWXwUEwR2osPncSUbck7h-VsV5poLE4dtLjbiikw";
 
-const supabaseClient = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let currentUser = "";
+let currentUser = null;
+let currentFriend = null;
 
-/* LOGIN */
-function doLogin() {
-  const username = document.getElementById("usernameInput").value.trim();
-  if (!username) return alert("Enter a username");
+/* ===== AUTH ===== */
+async function signup(){
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value.trim();
+  const { data, error } = await supabase.auth.signUp({email, password});
+  if(error) return alert(error.message);
+  alert("Account created! Please check your email to confirm if required.");
+}
 
-  currentUser = username;
+async function login(){
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value.trim();
+  const { data, error } = await supabase.auth.signInWithPassword({email,password});
+  if(error) return alert(error.message);
+  currentUser = data.user.email;
+  document.getElementById("authScreen").style.display="none";
+  document.getElementById("appScreen").style.display="flex";
+  loadFriends();
+}
 
-  document.getElementById("loginScreen").style.display = "none";
-  document.getElementById("chatScreen").style.display = "block";
-  document.getElementById("welcome").innerText =
-    "Logged in as " + currentUser;
+/* Logout */
+async function logout(){
+  await supabase.auth.signOut();
+  location.reload();
+}
 
+/* ===== FRIENDS ===== */
+async function loadFriends(){
+  const { data, error } = await supabase.from("friends").select("*").eq("user", currentUser);
+  const list = document.getElementById("friendsList");
+  list.innerHTML="";
+  if(data) data.forEach(f=>{
+    const div=document.createElement("div");
+    div.className="friendItem";
+    div.textContent=f.friend;
+    div.onclick=()=>selectFriend(f.friend);
+    list.appendChild(div);
+  });
+}
+
+async function addFriend(){
+  const friendEmail=document.getElementById("newFriendInput").value.trim();
+  if(!friendEmail) return;
+  await supabase.from("friends").insert({user:currentUser,friend:friendEmail});
+  document.getElementById("newFriendInput").value="";
+  loadFriends();
+}
+
+/* ===== MESSAGES ===== */
+async function selectFriend(friend){
+  currentFriend=friend;
+  document.getElementById("chatHeader").textContent=friend;
   loadMessages();
   subscribeRealtime();
 }
 
-/* LOAD OLD MESSAGES */
-async function loadMessages() {
-  const { data, error } = await supabaseClient
+async function loadMessages(){
+  if(!currentFriend) return;
+  const { data } = await supabase
     .from("messages")
     .select("*")
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    alert("Error loading messages");
-    console.error(error);
-    return;
-  }
-
-  document.getElementById("messages").innerHTML = "";
-  data.forEach(addMessage);
+    .or(`and(from_user.eq.${currentUser},to_user.eq.${currentFriend}),and(from_user.eq.${currentFriend},to_user.eq.${currentUser})`)
+    .order("created_at",{ascending:true});
+  const box=document.getElementById("messages");
+  box.innerHTML="";
+  if(data) data.forEach(m=>addMessage(m));
 }
 
-/* ADD MESSAGE */
-function addMessage(m) {
-  const div = document.createElement("div");
-  div.textContent = `${m.user}: ${m.text}`;
-  const box = document.getElementById("messages");
+function addMessage(m){
+  const box=document.getElementById("messages");
+  const div=document.createElement("div");
+  div.className="message "+(m.from_user===currentUser?"fromMe":"fromFriend");
+  div.textContent=m.text;
   box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
+  box.scrollTop=box.scrollHeight;
 }
 
-/* SEND MESSAGE */
-async function sendMessage() {
-  const input = document.getElementById("msgInput");
-  if (!input.value) return;
-
-  const { error } = await supabaseClient
-    .from("messages")
-    .insert({
-      user: currentUser,
-      text: input.value
-    });
-
-  if (error) {
-    alert("Message failed");
-    console.error(error);
-  }
-
-  input.value = "";
+async function sendMessage(){
+  const input=document.getElementById("msgInput");
+  if(!input.value||!currentFriend) return;
+  await supabase.from("messages").insert({
+    from_user: currentUser,
+    to_user: currentFriend,
+    text: input.value
+  });
+  input.value="";
 }
 
-/* REALTIME */
-function subscribeRealtime() {
-  supabaseClient
-    .channel("messages-channel")
-    .on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "messages" },
-      payload => addMessage(payload.new)
-    )
-    .subscribe();
+/* ===== REALTIME ===== */
+function subscribeRealtime(){
+  if(!currentFriend) return;
+  supabase.channel("vexo-messages")
+    .on("postgres_changes", {event:"INSERT",schema:"public",table:"messages"}, payload=>{
+      const m=payload.new;
+      if((m.from_user===currentUser && m.to_user===currentFriend) ||
+         (m.from_user===currentFriend && m.to_user===currentUser)){
+           addMessage(m);
+         }
+    }).subscribe();
 }
 </script>
-
 </body>
 </html>
