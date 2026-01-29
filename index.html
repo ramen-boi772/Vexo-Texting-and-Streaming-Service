@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>VEXO</title>
 
-  <!-- Supabase client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
@@ -15,11 +14,11 @@
       color: white;
     }
 
-    #login, #chat {
+    #loginScreen, #chatScreen {
       padding: 20px;
     }
 
-    #chat {
+    #chatScreen {
       display: none;
     }
 
@@ -53,19 +52,19 @@
 <body>
 
 <!-- LOGIN -->
-<div id="login">
+<div id="loginScreen">
   <h2>Login</h2>
-  <input id="username" placeholder="Username">
-  <button onclick="login()">Enter</button>
+  <input id="usernameInput" placeholder="Username">
+  <button onclick="doLogin()">Enter</button>
 </div>
 
 <!-- CHAT -->
-<div id="chat">
+<div id="chatScreen">
   <h3 id="welcome"></h3>
 
   <div id="messages"></div>
 
-  <input id="msg" placeholder="Message">
+  <input id="msgInput" placeholder="Message">
   <button onclick="sendMessage()">Send</button>
 </div>
 
@@ -83,13 +82,16 @@ const supabaseClient = supabase.createClient(
 let currentUser = "";
 
 /* LOGIN */
-function login() {
-  currentUser = username.value.trim();
-  if (!currentUser) return alert("Enter a username");
+function doLogin() {
+  const username = document.getElementById("usernameInput").value.trim();
+  if (!username) return alert("Enter a username");
 
-  login.style.display = "none";
-  chat.style.display = "block";
-  welcome.innerText = "Logged in as " + currentUser;
+  currentUser = username;
+
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("chatScreen").style.display = "block";
+  document.getElementById("welcome").innerText =
+    "Logged in as " + currentUser;
 
   loadMessages();
   subscribeRealtime();
@@ -108,27 +110,29 @@ async function loadMessages() {
     return;
   }
 
-  messages.innerHTML = "";
+  document.getElementById("messages").innerHTML = "";
   data.forEach(addMessage);
 }
 
-/* ADD MESSAGE TO UI */
+/* ADD MESSAGE */
 function addMessage(m) {
   const div = document.createElement("div");
   div.textContent = `${m.user}: ${m.text}`;
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+  const box = document.getElementById("messages");
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
 }
 
 /* SEND MESSAGE */
 async function sendMessage() {
-  if (!msg.value) return;
+  const input = document.getElementById("msgInput");
+  if (!input.value) return;
 
   const { error } = await supabaseClient
     .from("messages")
     .insert({
       user: currentUser,
-      text: msg.value
+      text: input.value
     });
 
   if (error) {
@@ -136,10 +140,10 @@ async function sendMessage() {
     console.error(error);
   }
 
-  msg.value = "";
+  input.value = "";
 }
 
-/* REALTIME LISTENER */
+/* REALTIME */
 function subscribeRealtime() {
   supabaseClient
     .channel("messages-channel")
