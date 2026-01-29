@@ -1,332 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>VEXO - Texting and Streaming Srvice</title>
-<link rel="icon" type="image/png" href="icon.png" sizes="32x32">
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <meta charset="UTF-8">
+  <title>VEXO</title>
 
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #111;
-    color: white;
-    margin: 0;
-    display: flex;
-    height: 100vh;
-  }
-  /* Sidebar */
-  #sidebar {
-    width: 200px;
-    background: #222;
-    padding: 10px;
-    display: none;
-    flex-direction: column;
-  }
-  #sidebar h3 { margin-top: 0; }
-  .friend {
-    padding: 5px;
-    margin: 5px 0;
-    background: #333;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  .friend:hover { background: #0f0; color: #000; }
-  /* Main content */
-  #main {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-  }
-  input, button {
-    padding: 8px;
-    margin: 5px;
-    border-radius: 5px;
-    border: none;
-  }
-  textarea {
-    width: 90%;
-    height: 140px;
-    background: #000;
-    color: #0f0;
-    resize: none;
-    overflow-y: auto;
-  }
-  .indicator {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: gray;
-    display: inline-block;
-    margin: 0 5px;
-  }
-  .active { background: lime; }
-  video {
-    width: 45%;
-    margin-top: 10px;
-    display: none;
-    border: 2px solid #0f0;
-    border-radius: 5px;
-  }
-  #videos { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
-  .tab { cursor: pointer; padding: 5px 10px; background: #222; display: inline-block; margin: 0 5px; border-radius: 5px; }
-  .tab.active { background: #0f0; color: #000; }
-</style>
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #1e1f22;
+      color: white;
+    }
+
+    #login, #chat {
+      padding: 20px;
+    }
+
+    #chat {
+      display: none;
+    }
+
+    #messages {
+      height: 70vh;
+      background: #111;
+      padding: 10px;
+      overflow-y: auto;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    input {
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      width: 70%;
+    }
+
+    button {
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      background: #5865f2;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- Sidebar -->
-<div id="sidebar">
-  <h3>Friends</h3>
-  <div id="friendList"></div>
-  <input id="addFriendInput" placeholder="Friend's ID">
-  <button onclick="addFriend()">Add Friend</button>
+<!-- LOGIN -->
+<div id="login">
+  <h2>Login</h2>
+  <input id="username" placeholder="Username">
+  <button onclick="login()">Enter</button>
 </div>
 
-<!-- Main Content -->
-<div id="main">
+<!-- CHAT -->
+<div id="chat">
+  <h3 id="welcome"></h3>
 
-<div id="loginScreen">
-  <div>
-    <span class="tab active" id="loginTab" onclick="showTab('login')">Login</span>
-    <span class="tab" id="registerTab" onclick="showTab('register')">Register</span>
-  </div>
+  <div id="messages"></div>
 
-  <!-- LOGIN FORM -->
-  <div id="loginForm">
-    <input id="loginUsername" placeholder="Username">
-    <input id="loginPassword" type="password" placeholder="Password">
-    <button onclick="login()">Login</button>
-  </div>
-
-  <!-- REGISTER FORM -->
-  <div id="registerForm" style="display:none;">
-    <input id="regUsername" placeholder="Username">
-    <input id="regPassword" type="password" placeholder="Password">
-    <button onclick="register()">Create Account</button>
-  </div>
-</div>
-
-<div id="app" style="display:none;">
-  <p>Welcome, <b id="myNameDisplay"></b>!</p>
-  <p>Your Invite ID:</p>
-  <b id="myId"></b><br><br>
-
-  <input id="peerId" placeholder="Friend's Invite ID">
-  <button onclick="connect()">Connect</button>
-  <button onclick="callFriend()">Call</button>
-  <button onclick="shareScreen()">Share Screen</button>
-  <button onclick="leaveCall()">Leave Call</button>
-
-  <br><br>
-  You <span id="meTalk" class="indicator"></span>
-  Friend <span id="friendTalk" class="indicator"></span>
-
-  <br><br>
-  <textarea id="chat" readonly></textarea><br>
   <input id="msg" placeholder="Message">
-  <button onclick="send()">Send</button>
-
-  <br><br>
-  <div id="videos">
-    <video id="myVideo" autoplay playsinline muted></video>
-    <video id="friendVideo" autoplay playsinline></video>
-  </div>
-  <audio id="audio" autoplay></audio>
+  <button onclick="sendMessage()">Send</button>
 </div>
-
-</div> <!-- End main -->
 
 <script>
-let peer, conn, myName, friendName = "Friend";
-let currentCall = null;
-let localStream = null;
+/* 🔑 SUPABASE CONFIG */
+const SUPABASE_URL = "https://yytycjrwppbklxghvrov.supabase.co";
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5dHljanJ3cHBia2x4Z2h2cm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2OTkyMjYsImV4cCI6MjA4NTI3NTIyNn0.QqmTWXwUEwR2osPncSUbck7h-VsV5poLE4dtLjbiikw";
 
-function showTab(tab) {
-  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
-  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
-  document.getElementById('loginTab').classList.toggle('active', tab === 'login');
-  document.getElementById('registerTab').classList.toggle('active', tab === 'register');
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+let currentUser = "";
+
+/* LOGIN */
+function login() {
+  currentUser = username.value.trim();
+  if (!currentUser) return alert("Enter a username");
+
+  login.style.display = "none";
+  chat.style.display = "block";
+  welcome.innerText = "Logged in as " + currentUser;
+
+  loadMessages();
+  subscribeRealtime();
 }
 
-function register() {
-  const u = regUsername.value.trim();
-  const p = regPassword.value;
-  if (!u || !p) return alert("Enter username & password");
+/* LOAD OLD MESSAGES */
+async function loadMessages() {
+  const { data, error } = await supabaseClient
+    .from("messages")
+    .select("*")
+    .order("created_at", { ascending: true });
 
-  if (localStorage.getItem("user_" + u)) {
-    return alert("Username already exists!");
+  if (error) {
+    alert("Error loading messages");
+    console.error(error);
+    return;
   }
 
-  localStorage.setItem("user_" + u, p);
-  localStorage.setItem("friends_" + u, JSON.stringify([]));
-  alert("Account created! You can now login.");
-  showTab('login');
+  messages.innerHTML = "";
+  data.forEach(addMessage);
 }
 
-function login() {
-  const u = loginUsername.value.trim();
-  const p = loginPassword.value;
-  const stored = localStorage.getItem("user_" + u);
-  if (!stored) return alert("Username does not exist!");
-  if (stored !== p) return alert("Wrong password!");
-  myName = u;
-
-  document.getElementById("loginScreen").style.display = "none";
-  document.getElementById("app").style.display = "block";
-  document.getElementById("myNameDisplay").innerText = myName;
-  document.getElementById("sidebar").style.display = "flex";
-
-  loadFriends();
-  startPeer();
+/* ADD MESSAGE TO UI */
+function addMessage(m) {
+  const div = document.createElement("div");
+  div.textContent = `${m.user}: ${m.text}`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
 }
 
-function startPeer() {
-  peer = new Peer();
-  peer.on("open", id => myId.innerText = id);
-
-  peer.on("connection", c => {
-    conn = c;
-    setupChat();
-    conn.on("open", () => conn.send({ type: "intro", name: myName }));
-  });
-
-  peer.on("call", call => {
-    currentCall = call;
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then(stream => {
-        localStream = stream;
-        myVideo.srcObject = stream;
-        myVideo.style.display = "block";
-        detectTalking(stream, meTalk);
-        call.answer(stream);
-        call.on("stream", s => {
-          friendVideo.srcObject = s;
-          friendVideo.style.display = "block";
-          detectTalking(s, friendTalk);
-        });
-      });
-  });
-}
-
-function loadFriends() {
-  const friends = JSON.parse(localStorage.getItem("friends_" + myName)) || [];
-  const container = document.getElementById("friendList");
-  container.innerHTML = "";
-  friends.forEach(f => {
-    const div = document.createElement("div");
-    div.className = "friend";
-    div.innerText = f;
-    div.onclick = () => { peerId.value = f; };
-    container.appendChild(div);
-  });
-}
-
-function addFriend() {
-  const f = addFriendInput.value.trim();
-  if (!f) return;
-  let friends = JSON.parse(localStorage.getItem("friends_" + myName)) || [];
-  if (!friends.includes(f)) friends.push(f);
-  localStorage.setItem("friends_" + myName, JSON.stringify(friends));
-  addFriendInput.value = "";
-  loadFriends();
-}
-
-function connect() {
-  conn = peer.connect(peerId.value);
-  conn.on("open", () => conn.send({ type: "intro", name: myName }));
-  setupChat();
-}
-
-function setupChat() {
-  conn.on("data", d => {
-    if (d.type === "intro") {
-      friendName = d.name;
-      addChatLine(`* ${friendName} connected *`);
-    }
-    if (d.type === "msg") {
-      addChatLine(`${friendName}: ${d.text}`);
-    }
-  });
-}
-
-function send() {
+/* SEND MESSAGE */
+async function sendMessage() {
   if (!msg.value) return;
-  addChatLine(`${myName}: ${msg.value}`);
-  conn.send({ type: "msg", text: msg.value });
+
+  const { error } = await supabaseClient
+    .from("messages")
+    .insert({
+      user: currentUser,
+      text: msg.value
+    });
+
+  if (error) {
+    alert("Message failed");
+    console.error(error);
+  }
+
   msg.value = "";
 }
 
-function addChatLine(line) {
-  chat.value += line + "\n";
-  chat.scrollTop = chat.scrollHeight;
-}
-
-function callFriend() {
-  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then(stream => {
-      localStream = stream;
-      myVideo.srcObject = stream;
-      myVideo.style.display = "block";
-      detectTalking(stream, meTalk);
-
-      currentCall = peer.call(peerId.value, stream);
-
-      currentCall.on("stream", s => {
-        friendVideo.srcObject = s;
-        friendVideo.style.display = "block";
-        detectTalking(s, friendTalk);
-      });
-    });
-}
-
-function shareScreen() {
-  if (!currentCall) return alert("Click Call first");
-
-  navigator.mediaDevices.getDisplayMedia({ video: true })
-    .then(screenStream => {
-      const screenTrack = screenStream.getVideoTracks()[0];
-      const sender = currentCall.peerConnection
-        .getSenders()
-        .find(s => s.track && s.track.kind === "video");
-
-      if (sender) sender.replaceTrack(screenTrack);
-
-      myVideo.srcObject = screenStream;
-      myVideo.style.display = "block";
-
-      screenTrack.onended = () => {
-        if (localStream && localStream.getVideoTracks().length) {
-          sender.replaceTrack(localStream.getVideoTracks()[0]);
-          myVideo.srcObject = localStream;
-        }
-      };
-    });
-}
-
-function leaveCall() {
-  if (currentCall) {
-    currentCall.close();
-    currentCall = null;
-    friendVideo.srcObject = null;
-    friendVideo.style.display = "none";
-    myVideo.srcObject = localStream;
-  }
-}
-
-function detectTalking(stream, indicator) {
-  const ctx = new AudioContext();
-  const analyser = ctx.createAnalyser();
-  const src = ctx.createMediaStreamSource(stream);
-  src.connect(analyser);
-  const data = new Uint8Array(analyser.frequencyBinCount);
-  function loop() {
-    analyser.getByteFrequencyData(data);
-    const volume = data.reduce((a,b)=>a+b)/data.length;
-    indicator.classList.toggle("active", volume > 20);
-    requestAnimationFrame(loop);
-  }
-  loop();
+/* REALTIME LISTENER */
+function subscribeRealtime() {
+  supabaseClient
+    .channel("messages-channel")
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages" },
+      payload => addMessage(payload.new)
+    )
+    .subscribe();
 }
 </script>
 
